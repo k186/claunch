@@ -1,0 +1,45 @@
+{
+  "models": [
+    {
+      "name": "Claude Opus 4.7",
+      "model": "claude-opus-4-7",
+      "env": {}
+    },
+    {
+      "name": "Claude Sonnet 4.6",
+      "model": "claude-sonnet-4-6",
+      "env": {}
+    },
+    {
+      "name": "Claude Haiku 4.5",
+      "model": "claude-haiku-4-5-20251001",
+      "env": {}
+    },
+    {
+      "name": "MiniMax-M2.7",
+      "model": "",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.minimaxi.com/anthropic",
+        "ANTHROPIC_AUTH_TOKEN": "your-minimax-api-key",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+        "ANTHROPIC_MODEL": "MiniMax-M2.7",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M2.7",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "MiniMax-M2.7",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M2.7"
+      }
+    },
+    {
+      "name": "DeepSeek V4 Pro",
+      "model": "",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+        "ANTHROPIC_AUTH_TOKEN": "your-deepseek-api-key",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+        "ANTHROPIC_MODEL": "deepseek-v4-pro",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-pro"
+      }
+    }
+  ]
+}
