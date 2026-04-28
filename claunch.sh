@@ -2,8 +2,16 @@
 #
 # claunch.sh — Claude Code smart launcher with fzf model switcher
 #
+# Author:  k186
+# License: MIT
+# Repo:    https://github.com/k186/claunch
+#
 # Usage (add to .zshrc):
-#   function ca { source "$HOME/.claude/claunch.sh" "$@"; (( $+functions[p10k] )) && p10k reload 2>/dev/null; }
+#   function ca {
+#     source "$HOME/.claude/claunch.sh" "$@"
+#     if (( $+functions[p10k] )); then p10k reload 2>/dev/null
+#     else for _ca_f in "${precmd_functions[@]}"; do "$_ca_f" 2>/dev/null; done; unset _ca_f; fi
+#   }
 #
 # ca              — launch Claude with the last-used model
 # ca --new        — pick a model with fzf, then launch Claude

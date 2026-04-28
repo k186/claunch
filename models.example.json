@@ -6,6 +6,11 @@
       "env": {}
     },
     {
+      "name": "Claude Opus 4.7 (1M)",
+      "model": "claude-opus-4-7[1m]",
+      "env": {}
+    },
+    {
       "name": "Claude Sonnet 4.6",
       "model": "claude-sonnet-4-6",
       "env": {}
@@ -16,29 +21,55 @@
       "env": {}
     },
     {
+      "name": "Claude Opus 4.6",
+      "model": "claude-opus-4-6",
+      "env": {}
+    },
+    {
+      "name": "Claude Opus 4.6 (1M)",
+      "model": "claude-opus-4-6[1m]",
+      "env": {}
+    },
+    {
       "name": "MiniMax-M2.7",
       "model": "",
       "env": {
         "ANTHROPIC_BASE_URL": "https://api.minimaxi.com/anthropic",
         "ANTHROPIC_AUTH_TOKEN": "your-minimax-api-key",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-        "ANTHROPIC_MODEL": "MiniMax-M2.7",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL": "MiniMax-M2.7",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL": "MiniMax-M2.7",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "MiniMax-M2.7"
+        "ANTHROPIC_MODEL": "MiniMax-M2.7"
       }
     },
     {
-      "name": "DeepSeek V4 Pro",
+      "name": "MiniMax-M2.5",
+      "model": "",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.minimaxi.com/anthropic",
+        "ANTHROPIC_AUTH_TOKEN": "your-minimax-api-key",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+        "ANTHROPIC_MODEL": "MiniMax-M2.5"
+      }
+    },
+    {
+      "name": "DeepSeek V4 Pro (1M)",
       "model": "",
       "env": {
         "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
         "ANTHROPIC_AUTH_TOKEN": "your-deepseek-api-key",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-        "ANTHROPIC_MODEL": "deepseek-v4-pro",
-        "ANTHROPIC_DEFAULT_SONNET_MODEL": "deepseek-v4-pro",
-        "ANTHROPIC_DEFAULT_OPUS_MODEL": "deepseek-v4-pro",
-        "ANTHROPIC_DEFAULT_HAIKU_MODEL": "deepseek-v4-pro"
+        "CLAUDE_MAX_CONTEXT_WINDOW": "1000000",
+        "ANTHROPIC_MODEL": "deepseek-v4-pro[1m]"
+      }
+    },
+    {
+      "name": "DeepSeek V4 Flash (1M)",
+      "model": "",
+      "env": {
+        "ANTHROPIC_BASE_URL": "https://api.deepseek.com/anthropic",
+        "ANTHROPIC_AUTH_TOKEN": "your-deepseek-api-key",
+        "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+        "CLAUDE_MAX_CONTEXT_WINDOW": "1000000",
+        "ANTHROPIC_MODEL": "deepseek-v4-flash[1m]"
       }
     }
   ]
