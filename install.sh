@@ -43,8 +43,10 @@ fi
 chmod +x "$TARGET"
 echo "Installed: $TARGET"
 
-# ── Seed models.json ──────────────────────────────────────────────────────────
-if [[ ! -f "$CLAUDE_DIR/models.json" ]]; then
+# ── Seed models.json (never overwrite existing config) ───────────────────────
+if [[ -f "$CLAUDE_DIR/models.json" ]]; then
+  echo "Skipped:   $CLAUDE_DIR/models.json already exists — not modified"
+else
   if [[ $MODE == local ]]; then
     cp "$SCRIPT_DIR/models.example.json" "$CLAUDE_DIR/models.json"
   else
