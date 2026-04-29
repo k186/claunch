@@ -64,7 +64,7 @@ unalias ca 2>/dev/null
 function ca {
   source "$HOME/.claude/claunch.sh" "$@"
   case "$1" in
-    --list|--add|--remove|--current|--upgrade|--help|--*) ;;
+    --add|--remove|--current|--upgrade|--help) ;;
     *)
       if (( $+functions[p10k] )); then
         p10k reload 2>/dev/null

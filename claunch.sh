@@ -205,7 +205,7 @@ _ca_cmd_list() {
     --padding=1 \
     --reverse \
     --prompt="  Model > " \
-    --header=$'  ↑ ↓  navigate    e  edit    Esc  exit\n' \
+    --header=$'  ↑ ↓  navigate    Enter  launch    e  edit    Esc  exit\n' \
     --expect='e' \
     --preview="$preview_cmd" \
     --preview-window=right:55%:wrap \
@@ -218,7 +218,23 @@ _ca_cmd_list() {
   choice=$(echo "$output" | tail -1)
   [[ -z "$choice" ]] && return 0
 
-  [[ "$key" == "e" ]] && _ca_cmd_edit "$choice"
+  if [[ "$key" == "e" ]]; then
+    _ca_cmd_edit "$choice"
+  else
+    # Enter — find index and launch
+    local i count
+    count=$(jq '.models | length' "$MODELS_CFG")
+    for ((i=0; i<count; i++)); do
+      local n
+      n=$(jq -r --argjson i "$i" '.models[$i].name' "$MODELS_CFG")
+      if [[ "$n" == "$choice" ]]; then
+        build_model_env "$i"
+        break
+      fi
+    done
+    echo "  Launching: $choice"
+    launch_claude
+  fi
 }
 
 _ca_cmd_edit() {
