@@ -20,6 +20,7 @@
 # ca --remove     — remove a model via fzf picker
 # ca --current    — show the model active in this window
 # ca --upgrade    — upgrade claunch to the latest version
+# ca --help       — show this help
 # ca --continue   — resume last session (pass-through to claude)
 
 MODELS_CFG="${CLAUNCH_MODELS_CFG:-$HOME/.claude/models.json}"
@@ -121,6 +122,35 @@ launch_claude() {
   printf '\033[?2026l'  # disable synchronized output (fixes p10k)
   printf '\033[?1l\033[?25h\033[0m\r'  # cursor keys / show cursor / reset colors
   stty sane 2>/dev/null
+}
+
+# ── Help ─────────────────────────────────────────────────────────────────────
+
+_ca_cmd_help() {
+  echo ""
+  echo "  claunch $CLAUNCH_VERSION — Claude Code smart launcher"
+  echo "  https://github.com/k186/claunch"
+  echo ""
+  echo "  Usage:"
+  echo ""
+  echo "    ca                      Launch Claude with the current model"
+  echo "    ca --new                Pick a model via fzf, then launch"
+  echo "    ca --continue           Resume last Claude session"
+  echo "    ca --new --resume <id>  Pick model + resume session"
+  echo ""
+  echo "  Model management:"
+  echo ""
+  echo "    ca --list               List all configured models"
+  echo "    ca --add                Add a new model (interactive)"
+  echo "    ca --remove             Remove a model (fzf picker)"
+  echo "    ca --current            Show active model in this window"
+  echo ""
+  echo "  Updates:"
+  echo ""
+  echo "    ca --upgrade            Upgrade claunch to the latest version"
+  echo ""
+  echo "  Config: ${CLAUNCH_MODELS_CFG:-$HOME/.claude/models.json}"
+  echo ""
 }
 
 # ── Version check ────────────────────────────────────────────────────────────
@@ -287,20 +317,16 @@ case "$1" in
     _ca_check_update
     launch_claude "$@"
     ;;
-  --list)
-    _ca_cmd_list
-    ;;
-  --add)
-    _ca_cmd_add
-    ;;
-  --remove)
-    _ca_cmd_remove
-    ;;
-  --current)
-    _ca_cmd_current
-    ;;
-  --upgrade)
-    _ca_cmd_upgrade
+  --list)    _ca_cmd_list    ;;
+  --add)     _ca_cmd_add     ;;
+  --remove)  _ca_cmd_remove  ;;
+  --current) _ca_cmd_current ;;
+  --upgrade) _ca_cmd_upgrade ;;
+  --help)    _ca_cmd_help    ;;
+  --*)
+    echo ""
+    echo "  Unknown option: $1"
+    _ca_cmd_help
     ;;
   *)
     _ca_check_update
