@@ -87,3 +87,15 @@ ca --new                # fzf 选择模型后启动
 ca --continue           # 继续上次会话
 ca --new --resume <id>  # 选择模型并恢复指定会话
 ```
+
+## 模型管理
+
+```zsh
+ca --list               # 查看所有已配置的模型
+ca --add                # 交互式添加新模型
+ca --remove             # 通过 fzf 删除模型
+ca --current            # 查看当前窗口使用的模型
+ca --upgrade            # 升级 claunch 到最新版本
+```
+
+每次启动时 claunch 会在后台静默检测新版本，有更新时会在终端提示。`ca --upgrade` 只更新 `claunch.sh`，不会修改你的 `models.json`。

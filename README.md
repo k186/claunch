@@ -87,3 +87,15 @@ ca --new                # pick model with fzf
 ca --continue           # resume last session
 ca --new --resume <id>  # pick model + resume session
 ```
+
+## Model management
+
+```zsh
+ca --list               # list all configured models
+ca --add                # add a new model (interactive wizard)
+ca --remove             # remove a model (fzf picker)
+ca --current            # show which model is active in this window
+ca --upgrade            # upgrade claunch to the latest version
+```
+
+claunch checks for updates in the background on launch and prints a notice if a newer version is available. `ca --upgrade` only updates `claunch.sh` — your `models.json` is never touched.
