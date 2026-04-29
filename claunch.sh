@@ -222,9 +222,9 @@ _ca_cmd_list() {
     _ca_cmd_edit "$choice"
   elif [[ "$key" == "del" ]]; then
     echo ""
-    printf "  Delete model \"%s\"? This cannot be undone. [y/N]: " "$choice"
+    printf "  Delete model \"%s\"? This cannot be undone. [Y/n]: " "$choice"
     read -r _c1
-    if [[ "$_c1" != "y" && "$_c1" != "Y" ]]; then
+    if [[ "$_c1" == "n" || "$_c1" == "N" ]]; then
       echo "  Cancelled."
       return 0
     fi
