@@ -15,11 +15,12 @@
 #
 # ca              — launch Claude with the last-used model
 # ca --new        — pick a model with fzf, then launch Claude
-# ca --list       — list all configured models
+# ca --list       — browse models (Enter=launch, e=edit, Del=delete)
 # ca --add        — add a new model interactively
 # ca --remove     — remove a model via fzf picker
 # ca --current    — show the model active in this window
 # ca --upgrade    — upgrade claunch to the latest version
+# ca --lang       — show / set language (en / zh)
 # ca --help       — show this help
 # ca --continue   — resume last session (pass-through to claude)
 
@@ -35,6 +36,97 @@ _ca_restore_opts() {
   (( _ca_had_ksharrays )) || unsetopt KSH_ARRAYS
   unset _ca_had_ksharrays
 }
+
+# ── i18n strings ──────────────────────────────────────────────────────────────
+
+_CA_LANG=$(jq -r '.lang // "en"' "$MODELS_CFG" 2>/dev/null)
+_CA_LANG="${_CA_LANG:-en}"
+
+if [[ "$_CA_LANG" == "zh" ]]; then
+  _S_LIST_HDR=$'  ↑ ↓  导航    Enter  启动    e  编辑    Del  删除    Esc  退出\n'
+  _S_NEW_HDR="选择模型"
+  _S_NEW_PROMPT="选择模型 > "
+  _S_REMOVE_HDR="选择要删除的模型"
+  _S_REMOVE_PROMPT="删除 > "
+  _S_LAUNCHING="  正在启动: %s\n"
+  _S_SWITCHED="  已切换至: %s\n"
+  _S_CANCELLED="  已取消。"
+  _S_CONFIRM_DEL='  删除模型 "%s"？此操作不可撤销。[Y/n]: '
+  _S_DELETED="  已删除: %s\n"
+  _S_EDIT_TITLE="  编辑: %s\n"
+  _S_EDIT_HINT="  ─────────────── (回车保留当前值，- 清空)"
+  _S_UPDATED="  已更新: %s\n"
+  _S_ADD_TITLE="  添加模型"
+  _S_ADD_SEP="  ─────────"
+  _S_ADDED="  已添加: %s\n"
+  _S_REMOVED="  已删除: %s\n"
+  _S_CURR_MODEL="  模型:    %s\n"
+  _S_CURR_PROV="  服务商: %s\n"
+  _S_CURR_DEF="  模型:    默认（未通过 claunch 设置）"
+  _S_UPGRADING="  正在升级 claunch..."
+  _S_UPG_DONE="  完成。请重启终端或执行: source ~/.zshrc"
+  _S_UPG_FAIL="  升级失败，请检查网络连接。"
+  _S_UPD_AVAIL=$'\n  claunch %s 可用（当前: %s）\n  执行: ca --upgrade\n'
+  _S_UNKNOWN="  未知选项: %s\n"
+  _S_LANG_SET="  语言已设置为: %s\n"
+  _S_LANG_CURR="  当前语言: %s\n"
+  _S_LANG_USAGE="  用法: ca --lang en | ca --lang zh"
+  _S_LANG_ERR="  支持的语言: en, zh"
+  _S_F_NAME="显示名称"
+  _S_F_BASEURL="Base URL"
+  _S_F_AUTH="Auth token"
+  _S_F_MODEL="ANTHROPIC_MODEL"
+  _S_F_CONTEXT="Context window"
+  _S_F_MODELID="Model ID"
+  _S_P_NAME="  显示名称: "
+  _S_P_BASEURL="  Base URL（空 = Anthropic 默认）: "
+  _S_P_AUTH="  Auth token: "
+  _S_P_MODEL="  ANTHROPIC_MODEL: "
+  _S_P_CONTEXT="  Context window（空则跳过，如 1000000）: "
+  _S_P_MODELID="  Model ID（如 claude-opus-4-7）: "
+else
+  _S_LIST_HDR=$'  ↑ ↓  navigate    Enter  launch    e  edit    Del  delete    Esc  exit\n'
+  _S_NEW_HDR="Select a Model"
+  _S_NEW_PROMPT="Select a Model > "
+  _S_REMOVE_HDR="Select model to remove"
+  _S_REMOVE_PROMPT="Remove > "
+  _S_LAUNCHING="  Launching: %s\n"
+  _S_SWITCHED="  Switched to: %s\n"
+  _S_CANCELLED="  Cancelled."
+  _S_CONFIRM_DEL='  Delete model "%s"? This cannot be undone. [Y/n]: '
+  _S_DELETED="  Deleted: %s\n"
+  _S_EDIT_TITLE="  Edit: %s\n"
+  _S_EDIT_HINT="  ─────────────── (Enter = keep current, - = clear)"
+  _S_UPDATED="  Updated: %s\n"
+  _S_ADD_TITLE="  Add model"
+  _S_ADD_SEP="  ─────────"
+  _S_ADDED="  Added: %s\n"
+  _S_REMOVED="  Removed: %s\n"
+  _S_CURR_MODEL="  Model:    %s\n"
+  _S_CURR_PROV="  Provider: %s\n"
+  _S_CURR_DEF="  Model:    default (not set via claunch in this window)"
+  _S_UPGRADING="  Upgrading claunch..."
+  _S_UPG_DONE="  Done. Restart your shell or run: source ~/.zshrc"
+  _S_UPG_FAIL="  Upgrade failed. Check your connection."
+  _S_UPD_AVAIL=$'\n  claunch %s available (current: %s)\n  Run: ca --upgrade\n'
+  _S_UNKNOWN="  Unknown option: %s\n"
+  _S_LANG_SET="  Language set to: %s\n"
+  _S_LANG_CURR="  Current language: %s\n"
+  _S_LANG_USAGE="  Usage: ca --lang en | ca --lang zh"
+  _S_LANG_ERR="  Supported languages: en, zh"
+  _S_F_NAME="Display name"
+  _S_F_BASEURL="Base URL"
+  _S_F_AUTH="Auth token"
+  _S_F_MODEL="ANTHROPIC_MODEL"
+  _S_F_CONTEXT="Context window"
+  _S_F_MODELID="Model ID"
+  _S_P_NAME="  Display name: "
+  _S_P_BASEURL="  Base URL (blank = Anthropic default): "
+  _S_P_AUTH="  Auth token: "
+  _S_P_MODEL="  ANTHROPIC_MODEL: "
+  _S_P_CONTEXT="  Context window (blank to skip, e.g. 1000000): "
+  _S_P_MODELID="  Model ID (e.g. claude-opus-4-7): "
+fi
 
 # ── Model env helpers ─────────────────────────────────────────────────────────
 
@@ -73,15 +165,15 @@ select_model() {
     --margin=1,2 \
     --padding=1 \
     --reverse \
-    --prompt="Select a Model > " \
-    --header="Select a Model" \
+    --prompt="$_S_NEW_PROMPT" \
+    --header="$_S_NEW_HDR" \
     --color=border:7 \
     --no-info 2>&1)
   local ret=$?
 
   if (( ret != 0 )) || [[ -z "$choice" ]]; then
     echo ""
-    echo "  Cancelled."
+    echo "  $_S_CANCELLED"
     return 1
   fi
 
@@ -94,7 +186,7 @@ select_model() {
   done
 
   SELECTED_IDX=$idx
-  echo "  Switched to: $choice"
+  printf "$_S_SWITCHED" "$choice"
   return 0
 }
 
@@ -127,57 +219,103 @@ launch_claude() {
 # ── Help ─────────────────────────────────────────────────────────────────────
 
 _ca_cmd_help() {
-  echo ""
-  echo "  claunch $CLAUNCH_VERSION — Claude Code smart launcher"
-  echo "  https://github.com/k186/claunch"
-  echo ""
-  echo "  Usage:"
-  echo ""
-  echo "    ca                      Launch Claude with the current model"
-  echo "    ca --new                Pick a model via fzf, then launch"
-  echo "    ca --continue           Resume last Claude session"
-  echo "    ca --new --resume <id>  Pick model + resume session"
-  echo ""
-  echo "  Model management:"
-  echo ""
-  echo "    ca --list               Browse models (e=edit, Esc=exit)"
-  echo "    ca --add                Add a new model (interactive)"
-  echo "    ca --remove             Remove a model (fzf picker)"
-  echo "    ca --current            Show active model in this window"
-  echo ""
-  echo "  Updates:"
-  echo ""
-  echo "    ca --upgrade            Upgrade claunch to the latest version"
-  echo ""
-  echo "  Config: ${CLAUNCH_MODELS_CFG:-$HOME/.claude/models.json}"
-  echo ""
+  if [[ "$_CA_LANG" == "zh" ]]; then
+    echo ""
+    echo "  claunch $CLAUNCH_VERSION — Claude Code 智能启动器"
+    echo "  https://github.com/k186/claunch"
+    echo ""
+    echo "  用法:"
+    echo ""
+    echo "    ca                      使用当前模型启动 Claude"
+    echo "    ca --new                fzf 选择模型后启动"
+    echo "    ca --continue           继续上次会话"
+    echo "    ca --new --resume <id>  选择模型并恢复指定会话"
+    echo ""
+    echo "  模型管理:"
+    echo ""
+    echo "    ca --list               浏览模型（Enter 启动，e 编辑，Del 删除）"
+    echo "    ca --add                交互式添加新模型"
+    echo "    ca --remove             通过 fzf 删除模型"
+    echo "    ca --current            查看当前窗口使用的模型"
+    echo ""
+    echo "  其他:"
+    echo ""
+    echo "    ca --upgrade            升级 claunch 到最新版本"
+    echo "    ca --lang [en|zh]       查看 / 切换语言"
+    echo ""
+    echo "  配置文件: ${CLAUNCH_MODELS_CFG:-$HOME/.claude/models.json}"
+    echo ""
+  else
+    echo ""
+    echo "  claunch $CLAUNCH_VERSION — Claude Code smart launcher"
+    echo "  https://github.com/k186/claunch"
+    echo ""
+    echo "  Usage:"
+    echo ""
+    echo "    ca                      Launch Claude with the current model"
+    echo "    ca --new                Pick a model via fzf, then launch"
+    echo "    ca --continue           Resume last Claude session"
+    echo "    ca --new --resume <id>  Pick model + resume session"
+    echo ""
+    echo "  Model management:"
+    echo ""
+    echo "    ca --list               Browse models (Enter=launch, e=edit, Del=delete)"
+    echo "    ca --add                Add a new model (interactive)"
+    echo "    ca --remove             Remove a model (fzf picker)"
+    echo "    ca --current            Show active model in this window"
+    echo ""
+    echo "  Other:"
+    echo ""
+    echo "    ca --upgrade            Upgrade claunch to the latest version"
+    echo "    ca --lang [en|zh]       Show / set language"
+    echo ""
+    echo "  Config: ${CLAUNCH_MODELS_CFG:-$HOME/.claude/models.json}"
+    echo ""
+  fi
 }
 
 # ── Version check ────────────────────────────────────────────────────────────
 
 _ca_check_update() {
-  # Run in background, non-blocking — print notice if a newer version exists
+  local lang="$_CA_LANG"
   {
     local latest
     latest=$(curl -fsSL --max-time 3 "$CLAUNCH_RAW/version" 2>/dev/null)
     if [[ -n "$latest" && "$latest" != "$CLAUNCH_VERSION" ]]; then
-      echo ""
-      echo "  claunch $latest available (current: $CLAUNCH_VERSION)"
-      echo "  Run: ca --upgrade"
-      echo ""
+      printf "$_S_UPD_AVAIL" "$latest" "$CLAUNCH_VERSION"
     fi
   } &!
 }
 
 _ca_cmd_upgrade() {
   echo ""
-  echo "  Upgrading claunch..."
-  # Only overwrites claunch.sh — never touches models.json
+  echo "  $_S_UPGRADING"
   curl -fsSL "$CLAUNCH_RAW/claunch.sh" -o "$HOME/.claude/claunch.sh" \
     && chmod +x "$HOME/.claude/claunch.sh" \
-    && echo "  Done. Restart your shell or run: source ~/.zshrc" \
-    || echo "  Upgrade failed. Check your connection."
+    && echo "  $_S_UPG_DONE" \
+    || echo "  $_S_UPG_FAIL"
   echo ""
+}
+
+# ── Language ──────────────────────────────────────────────────────────────────
+
+_ca_cmd_lang() {
+  local target="$1"
+  if [[ -z "$target" ]]; then
+    echo ""
+    printf "$_S_LANG_CURR" "$_CA_LANG"
+    echo "  $_S_LANG_USAGE"
+    echo ""
+    return 0
+  fi
+  if [[ "$target" != "en" && "$target" != "zh" ]]; then
+    echo "  $_S_LANG_ERR"
+    return 1
+  fi
+  local tmp
+  tmp=$(mktemp)
+  jq --arg lang "$target" '.lang = $lang' "$MODELS_CFG" > "$tmp" && mv "$tmp" "$MODELS_CFG"
+  printf "$_S_LANG_SET" "$target"
 }
 
 # ── Management commands ───────────────────────────────────────────────────────
@@ -205,7 +343,7 @@ _ca_cmd_list() {
     --padding=1 \
     --reverse \
     --prompt="  Model > " \
-    --header=$'  ↑ ↓  navigate    Enter  launch    e  edit    Del  delete    Esc  exit\n' \
+    --header="$_S_LIST_HDR" \
     --expect='e,del' \
     --preview="$preview_cmd" \
     --preview-window=right:55%:wrap \
@@ -222,20 +360,19 @@ _ca_cmd_list() {
     _ca_cmd_edit "$choice"
   elif [[ "$key" == "del" ]]; then
     echo ""
-    printf "  Delete model \"%s\"? This cannot be undone. [Y/n]: " "$choice"
+    printf "$_S_CONFIRM_DEL" "$choice"
     read -r _c1
     if [[ "$_c1" == "n" || "$_c1" == "N" ]]; then
-      echo "  Cancelled."
+      echo "  $_S_CANCELLED"
       return 0
     fi
     local tmp
     tmp=$(mktemp)
     jq --arg name "$choice" '.models = [.models[] | select(.name != $name)]' \
       "$MODELS_CFG" > "$tmp" && mv "$tmp" "$MODELS_CFG"
-    echo "  Deleted: $choice"
+    printf "$_S_DELETED" "$choice"
     echo ""
   else
-    # Enter — find index and launch
     local i count
     count=$(jq '.models | length' "$MODELS_CFG")
     for ((i=0; i<count; i++)); do
@@ -246,7 +383,7 @@ _ca_cmd_list() {
         break
       fi
     done
-    echo "  Launching: $choice"
+    printf "$_S_LAUNCHING" "$choice"
     launch_claude
   fi
 }
@@ -263,24 +400,22 @@ _ca_cmd_edit() {
   cur_context_window=$(jq -r --arg n "$target" '.models[] | select(.name == $n) | .env.CLAUDE_MAX_CONTEXT_WINDOW // ""' "$MODELS_CFG")
 
   echo ""
-  echo "  Edit: $cur_name"
-  echo "  ─────────────── (Enter = keep current, - = clear)"
+  printf "$_S_EDIT_TITLE" "$cur_name"
+  echo "  $_S_EDIT_HINT"
   echo ""
 
-  local name model base_url auth_token anthropic_model context_window input
+  local name model base_url auth_token anthropic_model context_window
 
-  _ca_read_field "Display name" "$cur_name";       name="$REPLY"
-  _ca_read_field "Base URL"     "$cur_base_url";   base_url="$REPLY"
+  _ca_read_field "$_S_F_NAME"    "$cur_name";           name="$REPLY"
+  _ca_read_field "$_S_F_BASEURL" "$cur_base_url";       base_url="$REPLY"
 
   if [[ -n "$base_url" ]]; then
-    # Third-party provider
-    _ca_read_field "Auth token"      "$cur_auth_token";      auth_token="$REPLY"
-    _ca_read_field "ANTHROPIC_MODEL" "$cur_anthropic_model"; anthropic_model="$REPLY"
-    _ca_read_field "Context window"  "$cur_context_window";  context_window="$REPLY"
+    _ca_read_field "$_S_F_AUTH"    "$cur_auth_token";      auth_token="$REPLY"
+    _ca_read_field "$_S_F_MODEL"   "$cur_anthropic_model"; anthropic_model="$REPLY"
+    _ca_read_field "$_S_F_CONTEXT" "$cur_context_window";  context_window="$REPLY"
     model=""
   else
-    # Native Anthropic
-    _ca_read_field "Model ID" "$cur_model"; model="$REPLY"
+    _ca_read_field "$_S_F_MODELID" "$cur_model";           model="$REPLY"
   fi
 
   local entry tmp
@@ -291,7 +426,7 @@ _ca_cmd_edit() {
     "$MODELS_CFG" > "$tmp" && mv "$tmp" "$MODELS_CFG"
 
   echo ""
-  echo "  Updated: $name"
+  printf "$_S_UPDATED" "$name"
   echo ""
 }
 
@@ -333,37 +468,35 @@ _ca_build_entry() {
 _ca_cmd_current() {
   echo ""
   if [[ -n "$ANTHROPIC_MODEL" ]]; then
-    echo "  Model:    $ANTHROPIC_MODEL"
-    [[ -n "$ANTHROPIC_BASE_URL" ]] && echo "  Provider: $ANTHROPIC_BASE_URL"
+    printf "$_S_CURR_MODEL" "$ANTHROPIC_MODEL"
+    [[ -n "$ANTHROPIC_BASE_URL" ]] && printf "$_S_CURR_PROV" "$ANTHROPIC_BASE_URL"
   elif [[ -n "$MODEL_FLAG" ]]; then
-    echo "  Model:    $MODEL_FLAG"
+    printf "$_S_CURR_MODEL" "$MODEL_FLAG"
   else
-    echo "  Model:    default (not set via claunch in this window)"
+    echo "  $_S_CURR_DEF"
   fi
   echo ""
 }
 
 _ca_cmd_add() {
   echo ""
-  echo "  Add model"
-  echo "  ─────────"
+  echo "  $_S_ADD_TITLE"
+  echo "  $_S_ADD_SEP"
 
   local name model base_url auth_token anthropic_model context_window
 
-  printf "  Display name: "; read -r name
-  [[ -z "$name" ]] && echo "  Cancelled." && return 1
+  printf "%s" "$_S_P_NAME"; read -r name
+  [[ -z "$name" ]] && echo "  $_S_CANCELLED" && return 1
 
-  printf "  Base URL (blank = Anthropic default): "; read -r base_url
+  printf "%s" "$_S_P_BASEURL"; read -r base_url
 
   if [[ -n "$base_url" ]]; then
-    # Third-party provider — model driven by ANTHROPIC_MODEL env var
-    printf "  Auth token: "; read -r auth_token
-    printf "  ANTHROPIC_MODEL: "; read -r anthropic_model
-    printf "  Context window (blank to skip, e.g. 1000000): "; read -r context_window
+    printf "%s" "$_S_P_AUTH";    read -r auth_token
+    printf "%s" "$_S_P_MODEL";   read -r anthropic_model
+    printf "%s" "$_S_P_CONTEXT"; read -r context_window
     model=""
   else
-    # Native Anthropic — model passed as --model flag
-    printf "  Model ID (e.g. claude-opus-4-7): "; read -r model
+    printf "%s" "$_S_P_MODELID"; read -r model
   fi
 
   local entry tmp
@@ -372,7 +505,7 @@ _ca_cmd_add() {
   jq --argjson entry "$entry" '.models += [$entry]' "$MODELS_CFG" > "$tmp" \
     && mv "$tmp" "$MODELS_CFG"
   echo ""
-  echo "  Added: $name"
+  printf "$_S_ADDED" "$name"
   echo ""
 }
 
@@ -390,13 +523,13 @@ _ca_cmd_remove() {
     --margin=1,2 \
     --padding=1 \
     --reverse \
-    --prompt="Remove > " \
-    --header="Select model to remove" \
+    --prompt="$_S_REMOVE_PROMPT" \
+    --header="$_S_REMOVE_HDR" \
     --color=border:7 \
     --no-info 2>&1)
 
   if [[ -z "$choice" ]]; then
-    echo "  Cancelled."
+    echo "  $_S_CANCELLED"
     return 0
   fi
 
@@ -404,7 +537,7 @@ _ca_cmd_remove() {
   tmp=$(mktemp)
   jq --arg name "$choice" '.models = [.models[] | select(.name != $name)]' \
     "$MODELS_CFG" > "$tmp" && mv "$tmp" "$MODELS_CFG"
-  echo "  Removed: $choice"
+  printf "$_S_REMOVED" "$choice"
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -421,15 +554,15 @@ case "$1" in
     _ca_check_update
     launch_claude "$@"
     ;;
-  --list)    _ca_cmd_list    ;;
-  --add)     _ca_cmd_add     ;;
-  --remove)  _ca_cmd_remove  ;;
-  --current) _ca_cmd_current ;;
-  --upgrade) _ca_cmd_upgrade ;;
-  --help)    _ca_cmd_help    ;;
+  --list)    _ca_cmd_list        ;;
+  --add)     _ca_cmd_add         ;;
+  --remove)  _ca_cmd_remove      ;;
+  --current) _ca_cmd_current     ;;
+  --upgrade) _ca_cmd_upgrade     ;;
+  --lang)    _ca_cmd_lang "$2"   ;;
+  --help)    _ca_cmd_help        ;;
   --*)
-    echo ""
-    echo "  Unknown option: $1"
+    printf "$_S_UNKNOWN" "$1"
     _ca_cmd_help
     ;;
   *)

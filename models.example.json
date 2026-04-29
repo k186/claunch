@@ -1,5 +1,6 @@
 {
   "name": "claunch",
+  "lang": "en",
   "models": [
     {
       "name": "Claude Opus 4.7",
