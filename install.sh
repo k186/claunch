@@ -63,12 +63,17 @@ if ! grep -q 'claunch.sh' "$ZSHRC" 2>/dev/null; then
 unalias ca 2>/dev/null
 function ca {
   source "$HOME/.claude/claunch.sh" "$@"
-  if (( $+functions[p10k] )); then
-    p10k reload 2>/dev/null
-  else
-    for _ca_f in "${precmd_functions[@]}"; do "$_ca_f" 2>/dev/null; done
-    unset _ca_f
-  fi
+  case "$1" in
+    --list|--add|--remove|--current|--upgrade) ;;
+    *)
+      if (( $+functions[p10k] )); then
+        p10k reload 2>/dev/null
+      else
+        for _ca_f in "${precmd_functions[@]}"; do "$_ca_f" 2>/dev/null; done
+        unset _ca_f
+      fi
+      ;;
+  esac
 }
 EOF
   echo "Added ca() function to $ZSHRC"
