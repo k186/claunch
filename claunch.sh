@@ -140,7 +140,7 @@ _ca_cmd_help() {
   echo ""
   echo "  Model management:"
   echo ""
-  echo "    ca --list               List all configured models"
+  echo "    ca --list               Browse models (e=edit, Esc=exit)"
   echo "    ca --add                Add a new model (interactive)"
   echo "    ca --remove             Remove a model (fzf picker)"
   echo "    ca --current            Show active model in this window"
@@ -197,36 +197,133 @@ _ca_cmd_list() {
     \"\"
   ' \"$MODELS_CFG\""
 
-  local choice
-  choice=$(jq -r '.models[].name' "$MODELS_CFG" | fzf \
+  local output key choice
+  output=$(jq -r '.models[].name' "$MODELS_CFG" | fzf \
     --height=~80% \
     --border=rounded \
     --margin=1,2 \
     --padding=1 \
     --reverse \
     --prompt="  Model > " \
-    --header=$'  ↑ ↓  navigate    Enter  view config    Esc  exit\n' \
+    --header=$'  ↑ ↓  navigate    e  edit    Esc  exit\n' \
+    --expect='e' \
     --preview="$preview_cmd" \
     --preview-window=right:55%:wrap \
     --color=border:7 \
     --no-info 2>&1)
   local ret=$?
 
-  if (( ret == 0 )) && [[ -n "$choice" ]]; then
-    echo ""
-    jq -r --arg n "$choice" '
-      .models[] | select(.name == $n) |
-      "  ── " + .name + " ──",
-      "",
-      "  Model  : " + (if .model != "" then .model else "(env-driven)" end),
-      "",
-      "  Env:",
-      (if (.env | length) > 0 then
-        (.env | to_entries[] | "    " + .key + " = " + .value)
-      else "    (none)" end),
-      ""
-    ' "$MODELS_CFG"
+  [[ $ret -ne 0 ]] && return 0
+  key=$(echo "$output" | head -1)
+  choice=$(echo "$output" | tail -1)
+  [[ -z "$choice" ]] && return 0
+
+  [[ "$key" == "e" ]] && _ca_cmd_edit "$choice"
+}
+
+_ca_cmd_edit() {
+  local target="$1"
+
+  local cur_name cur_model cur_base_url cur_auth_token cur_anthropic_model cur_context_window
+  cur_name=$(jq -r --arg n "$target" '.models[] | select(.name == $n) | .name' "$MODELS_CFG")
+  cur_model=$(jq -r --arg n "$target" '.models[] | select(.name == $n) | .model // ""' "$MODELS_CFG")
+  cur_base_url=$(jq -r --arg n "$target" '.models[] | select(.name == $n) | .env.ANTHROPIC_BASE_URL // ""' "$MODELS_CFG")
+  cur_auth_token=$(jq -r --arg n "$target" '.models[] | select(.name == $n) | .env.ANTHROPIC_AUTH_TOKEN // ""' "$MODELS_CFG")
+  cur_anthropic_model=$(jq -r --arg n "$target" '.models[] | select(.name == $n) | .env.ANTHROPIC_MODEL // ""' "$MODELS_CFG")
+  cur_context_window=$(jq -r --arg n "$target" '.models[] | select(.name == $n) | .env.CLAUDE_MAX_CONTEXT_WINDOW // ""' "$MODELS_CFG")
+
+  echo ""
+  echo "  Edit: $cur_name"
+  echo "  ─────────────── (Enter to keep current value)"
+  echo ""
+
+  local name model base_url auth_token anthropic_model context_window input
+
+  printf "  Display name [%s]: " "$cur_name"
+  read -r input; name="${input:-$cur_name}"
+
+  printf "  Model ID [%s]: " "${cur_model:--}"
+  read -r input
+  if [[ -z "$input" ]]; then
+    model="$cur_model"
+  elif [[ "$input" == "-" ]]; then
+    model=""
+  else
+    model="$input"
   fi
+
+  printf "  Base URL [%s]: " "${cur_base_url:--}"
+  read -r input
+  if [[ -z "$input" ]]; then
+    base_url="$cur_base_url"
+  elif [[ "$input" == "-" ]]; then
+    base_url=""
+  else
+    base_url="$input"
+  fi
+
+  if [[ -n "$base_url" ]]; then
+    printf "  Auth token [%s]: " "${cur_auth_token:--}"
+    read -r input
+    if [[ -z "$input" ]]; then
+      auth_token="$cur_auth_token"
+    elif [[ "$input" == "-" ]]; then
+      auth_token=""
+    else
+      auth_token="$input"
+    fi
+
+    printf "  ANTHROPIC_MODEL [%s]: " "${cur_anthropic_model:--}"
+    read -r input
+    if [[ -z "$input" ]]; then
+      anthropic_model="$cur_anthropic_model"
+    elif [[ "$input" == "-" ]]; then
+      anthropic_model=""
+    else
+      anthropic_model="$input"
+    fi
+
+    printf "  Context window [%s]: " "${cur_context_window:--}"
+    read -r input
+    if [[ -z "$input" ]]; then
+      context_window="$cur_context_window"
+    elif [[ "$input" == "-" ]]; then
+      context_window=""
+    else
+      context_window="$input"
+    fi
+  fi
+
+  # Build updated entry
+  local entry
+  if [[ -n "$base_url" ]]; then
+    entry=$(jq -n \
+      --arg name "$name" --arg model "$model" \
+      --arg base_url "$base_url" --arg auth_token "$auth_token" \
+      --arg anthropic_model "$anthropic_model" --arg context_window "$context_window" \
+      '{
+        name: $name, model: $model,
+        env: {
+          ANTHROPIC_BASE_URL: $base_url,
+          ANTHROPIC_AUTH_TOKEN: $auth_token,
+          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
+          ANTHROPIC_MODEL: $anthropic_model
+        } + (if $context_window != "" then {CLAUDE_MAX_CONTEXT_WINDOW: $context_window} else {} end)
+      }')
+  else
+    entry=$(jq -n --arg name "$name" --arg model "$model" \
+      '{name: $name, model: $model, env: {}}')
+  fi
+
+  local tmp
+  tmp=$(mktemp)
+  jq --arg orig "$target" --argjson entry "$entry" \
+    '.models = [.models[] | if .name == $orig then $entry else . end]' \
+    "$MODELS_CFG" > "$tmp" && mv "$tmp" "$MODELS_CFG"
+
+  echo ""
+  echo "  Updated: $name"
+  echo ""
 }
 
 _ca_cmd_current() {
