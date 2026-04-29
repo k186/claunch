@@ -25,7 +25,7 @@
 # ca --continue   — resume last session (pass-through to claude)
 
 MODELS_CFG="${CLAUNCH_MODELS_CFG:-$HOME/.claude/models.json}"
-CLAUNCH_VERSION="1.0.0"
+CLAUNCH_VERSION="1.1.0"
 CLAUNCH_RAW="https://raw.githubusercontent.com/k186/claunch/main"
 
 # Save KSH_ARRAYS state and enable locally (0-indexed to match jq)
