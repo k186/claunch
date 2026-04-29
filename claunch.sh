@@ -183,25 +183,50 @@ _ca_cmd_upgrade() {
 # ── Management commands ───────────────────────────────────────────────────────
 
 _ca_cmd_list() {
-  local count i name model anthropic_model label
-  count=$(jq '.models | length' "$MODELS_CFG")
-  echo ""
-  printf "  %-4s %-32s %s\n" "No." "Name" "Model"
-  printf "  %-4s %-32s %s\n" "----" "--------------------------------" "------------------------------"
-  for ((i=0; i<count; i++)); do
-    name=$(jq -r --argjson i "$i" '.models[$i].name' "$MODELS_CFG")
-    model=$(jq -r --argjson i "$i" '.models[$i].model // ""' "$MODELS_CFG")
-    if [[ -n "$model" ]]; then
-      label="$model"
-    else
-      anthropic_model=$(jq -r --argjson i "$i" '.models[$i].env.ANTHROPIC_MODEL // ""' "$MODELS_CFG")
-      label="${anthropic_model:-(env-driven)}"
-    fi
-    printf "  %-4s %-32s %s\n" "$((i+1))." "$name" "$label"
-  done
-  echo ""
-  echo "  Config: $MODELS_CFG"
-  echo ""
+  local preview_cmd
+  preview_cmd="jq -r --arg n {} '
+    .models[] | select(.name == \$n) |
+    \"\",
+    \"  Name   : \" + .name,
+    \"  Model  : \" + (if .model != \"\" then .model else \"(env-driven)\" end),
+    \"\",
+    \"  Env:\",
+    (if (.env | length) > 0 then
+      (.env | to_entries[] | \"    \" + .key + \" = \" + .value)
+    else \"    (none)\" end),
+    \"\"
+  ' \"$MODELS_CFG\""
+
+  local choice
+  choice=$(jq -r '.models[].name' "$MODELS_CFG" | fzf \
+    --height=~80% \
+    --border=rounded \
+    --margin=1,2 \
+    --padding=1 \
+    --reverse \
+    --prompt="  Model > " \
+    --header=$'  ↑ ↓  navigate    Enter  view config    Esc  exit\n' \
+    --preview="$preview_cmd" \
+    --preview-window=right:55%:wrap \
+    --color=border:7 \
+    --no-info 2>&1)
+  local ret=$?
+
+  if (( ret == 0 )) && [[ -n "$choice" ]]; then
+    echo ""
+    jq -r --arg n "$choice" '
+      .models[] | select(.name == $n) |
+      "  ── " + .name + " ──",
+      "",
+      "  Model  : " + (if .model != "" then .model else "(env-driven)" end),
+      "",
+      "  Env:",
+      (if (.env | length) > 0 then
+        (.env | to_entries[] | "    " + .key + " = " + .value)
+      else "    (none)" end),
+      ""
+    ' "$MODELS_CFG"
+  fi
 }
 
 _ca_cmd_current() {
