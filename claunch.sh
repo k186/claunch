@@ -222,11 +222,12 @@ _ca_cmd_list() {
     _ca_cmd_edit "$choice"
   elif [[ "$key" == "del" ]]; then
     echo ""
-    echo "  Delete: $choice"
-    printf "  Confirm? [y/N]: "; read -r _c1
-    [[ "$_c1" != "y" && "$_c1" != "Y" ]] && echo "  Cancelled." && return 0
-    printf "  Are you sure? [y/N]: "; read -r _c2
-    [[ "$_c2" != "y" && "$_c2" != "Y" ]] && echo "  Cancelled." && return 0
+    printf "  Delete model \"%s\"? This cannot be undone. [y/N]: " "$choice"
+    read -r _c1
+    if [[ "$_c1" != "y" && "$_c1" != "Y" ]]; then
+      echo "  Cancelled."
+      return 0
+    fi
     local tmp
     tmp=$(mktemp)
     jq --arg name "$choice" '.models = [.models[] | select(.name != $name)]' \
