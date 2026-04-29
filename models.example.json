@@ -1,4 +1,5 @@
 {
+  "name": "claunch",
   "models": [
     {
       "name": "Claude Opus 4.7",
