@@ -234,88 +234,27 @@ _ca_cmd_edit() {
 
   echo ""
   echo "  Edit: $cur_name"
-  echo "  ─────────────── (Enter to keep current value)"
+  echo "  ─────────────── (Enter = keep current, - = clear)"
   echo ""
 
   local name model base_url auth_token anthropic_model context_window input
 
-  printf "  Display name [%s]: " "$cur_name"
-  read -r input; name="${input:-$cur_name}"
+  _ca_read_field "Display name" "$cur_name";       name="$REPLY"
+  _ca_read_field "Base URL"     "$cur_base_url";   base_url="$REPLY"
 
-  printf "  Model ID [%s]: " "${cur_model:--}"
-  read -r input
-  if [[ -z "$input" ]]; then
-    model="$cur_model"
-  elif [[ "$input" == "-" ]]; then
+  if [[ -n "$base_url" ]]; then
+    # Third-party provider
+    _ca_read_field "Auth token"      "$cur_auth_token";      auth_token="$REPLY"
+    _ca_read_field "ANTHROPIC_MODEL" "$cur_anthropic_model"; anthropic_model="$REPLY"
+    _ca_read_field "Context window"  "$cur_context_window";  context_window="$REPLY"
     model=""
   else
-    model="$input"
+    # Native Anthropic
+    _ca_read_field "Model ID" "$cur_model"; model="$REPLY"
   fi
 
-  printf "  Base URL [%s]: " "${cur_base_url:--}"
-  read -r input
-  if [[ -z "$input" ]]; then
-    base_url="$cur_base_url"
-  elif [[ "$input" == "-" ]]; then
-    base_url=""
-  else
-    base_url="$input"
-  fi
-
-  if [[ -n "$base_url" ]]; then
-    printf "  Auth token [%s]: " "${cur_auth_token:--}"
-    read -r input
-    if [[ -z "$input" ]]; then
-      auth_token="$cur_auth_token"
-    elif [[ "$input" == "-" ]]; then
-      auth_token=""
-    else
-      auth_token="$input"
-    fi
-
-    printf "  ANTHROPIC_MODEL [%s]: " "${cur_anthropic_model:--}"
-    read -r input
-    if [[ -z "$input" ]]; then
-      anthropic_model="$cur_anthropic_model"
-    elif [[ "$input" == "-" ]]; then
-      anthropic_model=""
-    else
-      anthropic_model="$input"
-    fi
-
-    printf "  Context window [%s]: " "${cur_context_window:--}"
-    read -r input
-    if [[ -z "$input" ]]; then
-      context_window="$cur_context_window"
-    elif [[ "$input" == "-" ]]; then
-      context_window=""
-    else
-      context_window="$input"
-    fi
-  fi
-
-  # Build updated entry
-  local entry
-  if [[ -n "$base_url" ]]; then
-    entry=$(jq -n \
-      --arg name "$name" --arg model "$model" \
-      --arg base_url "$base_url" --arg auth_token "$auth_token" \
-      --arg anthropic_model "$anthropic_model" --arg context_window "$context_window" \
-      '{
-        name: $name, model: $model,
-        env: {
-          ANTHROPIC_BASE_URL: $base_url,
-          ANTHROPIC_AUTH_TOKEN: $auth_token,
-          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
-          ANTHROPIC_MODEL: $anthropic_model
-        } + (if $context_window != "" then {CLAUDE_MAX_CONTEXT_WINDOW: $context_window} else {} end)
-      }')
-  else
-    entry=$(jq -n --arg name "$name" --arg model "$model" \
-      '{name: $name, model: $model, env: {}}')
-  fi
-
-  local tmp
+  local entry tmp
+  entry=$(_ca_build_entry "$name" "$model" "$base_url" "$auth_token" "$anthropic_model" "$context_window")
   tmp=$(mktemp)
   jq --arg orig "$target" --argjson entry "$entry" \
     '.models = [.models[] | if .name == $orig then $entry else . end]' \
@@ -324,6 +263,41 @@ _ca_cmd_edit() {
   echo ""
   echo "  Updated: $name"
   echo ""
+}
+
+# Read a field with current value shown; Enter keeps it, - clears it
+_ca_read_field() {
+  local label="$1" current="$2" input
+  printf "  %-18s [%s]: " "$label" "${current:--}"
+  read -r input
+  if [[ -z "$input" ]]; then
+    REPLY="$current"
+  elif [[ "$input" == "-" ]]; then
+    REPLY=""
+  else
+    REPLY="$input"
+  fi
+}
+
+# Build a model entry JSON safely (avoids zsh quoting issues with jq +)
+_ca_build_entry() {
+  local name="$1" model="$2" base_url="$3" auth_token="$4" anthropic_model="$5" context_window="$6"
+  local env_json entry
+
+  if [[ -n "$base_url" ]]; then
+    env_json=$(jq -n \
+      --arg u "$base_url" --arg t "$auth_token" --arg m "$anthropic_model" \
+      '{ANTHROPIC_BASE_URL:$u, ANTHROPIC_AUTH_TOKEN:$t, CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC:"1", ANTHROPIC_MODEL:$m}')
+    if [[ -n "$context_window" ]]; then
+      env_json=$(echo "$env_json" | jq --arg cw "$context_window" '. + {CLAUDE_MAX_CONTEXT_WINDOW:$cw}')
+    fi
+    entry=$(jq -n --arg name "$name" --arg model "$model" --argjson env "$env_json" \
+      '{name:$name, model:$model, env:$env}')
+  else
+    entry=$(jq -n --arg name "$name" --arg model "$model" \
+      '{name:$name, model:$model, env:{}}')
+  fi
+  echo "$entry"
 }
 
 _ca_cmd_current() {
@@ -349,43 +323,21 @@ _ca_cmd_add() {
   printf "  Display name: "; read -r name
   [[ -z "$name" ]] && echo "  Cancelled." && return 1
 
-  printf "  Model ID (blank = env-driven, e.g. for 3rd-party): "; read -r model
   printf "  Base URL (blank = Anthropic default): "; read -r base_url
 
   if [[ -n "$base_url" ]]; then
+    # Third-party provider — model driven by ANTHROPIC_MODEL env var
     printf "  Auth token: "; read -r auth_token
-    printf "  ANTHROPIC_MODEL (model name for provider): "; read -r anthropic_model
-    printf "  Context window override (blank to skip, e.g. 1000000): "; read -r context_window
-  fi
-
-  # Build JSON entry
-  local entry
-  if [[ -n "$base_url" ]]; then
-    entry=$(jq -n \
-      --arg name "$name" \
-      --arg model "$model" \
-      --arg base_url "$base_url" \
-      --arg auth_token "$auth_token" \
-      --arg anthropic_model "$anthropic_model" \
-      --arg context_window "$context_window" \
-      '{
-        name: $name,
-        model: $model,
-        env: {
-          ANTHROPIC_BASE_URL: $base_url,
-          ANTHROPIC_AUTH_TOKEN: $auth_token,
-          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
-          ANTHROPIC_MODEL: $anthropic_model
-        } + (if $context_window != "" then {CLAUDE_MAX_CONTEXT_WINDOW: $context_window} else {} end)
-      }')
+    printf "  ANTHROPIC_MODEL: "; read -r anthropic_model
+    printf "  Context window (blank to skip, e.g. 1000000): "; read -r context_window
+    model=""
   else
-    entry=$(jq -n \
-      --arg name "$name" \
-      --arg model "$model" \
-      '{name: $name, model: $model, env: {}}')
+    # Native Anthropic — model passed as --model flag
+    printf "  Model ID (e.g. claude-opus-4-7): "; read -r model
   fi
 
-  local tmp
+  local entry tmp
+  entry=$(_ca_build_entry "$name" "$model" "$base_url" "$auth_token" "$anthropic_model" "$context_window")
   tmp=$(mktemp)
   jq --argjson entry "$entry" '.models += [$entry]' "$MODELS_CFG" > "$tmp" \
     && mv "$tmp" "$MODELS_CFG"
