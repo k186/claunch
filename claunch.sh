@@ -205,8 +205,8 @@ _ca_cmd_list() {
     --padding=1 \
     --reverse \
     --prompt="  Model > " \
-    --header=$'  ↑ ↓  navigate    Enter  launch    e  edit    Esc  exit\n' \
-    --expect='e' \
+    --header=$'  ↑ ↓  navigate    Enter  launch    e  edit    Del  delete    Esc  exit\n' \
+    --expect='e,del' \
     --preview="$preview_cmd" \
     --preview-window=right:55%:wrap \
     --color=border:7 \
@@ -220,6 +220,19 @@ _ca_cmd_list() {
 
   if [[ "$key" == "e" ]]; then
     _ca_cmd_edit "$choice"
+  elif [[ "$key" == "del" ]]; then
+    echo ""
+    echo "  Delete: $choice"
+    printf "  Confirm? [y/N]: "; read -r _c1
+    [[ "$_c1" != "y" && "$_c1" != "Y" ]] && echo "  Cancelled." && return 0
+    printf "  Are you sure? [y/N]: "; read -r _c2
+    [[ "$_c2" != "y" && "$_c2" != "Y" ]] && echo "  Cancelled." && return 0
+    local tmp
+    tmp=$(mktemp)
+    jq --arg name "$choice" '.models = [.models[] | select(.name != $name)]' \
+      "$MODELS_CFG" > "$tmp" && mv "$tmp" "$MODELS_CFG"
+    echo "  Deleted: $choice"
+    echo ""
   else
     # Enter — find index and launch
     local i count
