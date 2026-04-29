@@ -1,1 +1,4 @@
 models.json
+.idea/
+.claude/
+release.sh
