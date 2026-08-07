@@ -1,26 +1,71 @@
 #!/bin/zsh
-# Install claunch: copies script to ~/.claude/ and wires up the shell function
+#
+# install.sh — claunch installer
+#
+# One-line install:
+#   bash <(curl -fsSL https://raw.githubusercontent.com/k186/claunch/main/install.sh)
+#
+# Author:  k186
+# License: MIT
+# Repo:    https://github.com/k186/claunch
 
 set -e
 
-SCRIPT_DIR="${0:A:h}"
+REPO_RAW="https://raw.githubusercontent.com/k186/claunch/main"
 CLAUDE_DIR="$HOME/.claude"
 TARGET="$CLAUDE_DIR/claunch.sh"
+CONFIG_DIR="$HOME/.config/claunch"
+CONFIG_FILE="$CONFIG_DIR/models.json"
+LEGACY_CFG="$HOME/.claude/models.json"
 ZSHRC="$HOME/.zshrc"
 
-# Copy script
-mkdir -p "$CLAUDE_DIR"
-cp "$SCRIPT_DIR/claunch.sh" "$TARGET"
-chmod +x "$TARGET"
-echo "Installed: $TARGET"
-
-# Copy example models config if none exists
-if [[ ! -f "$CLAUDE_DIR/models.json" ]]; then
-  cp "$SCRIPT_DIR/models.example.json" "$CLAUDE_DIR/models.json"
-  echo "Created:   $CLAUDE_DIR/models.json (fill in your API keys)"
+# ── Detect local vs remote ────────────────────────────────────────────────────
+SCRIPT_DIR="${0:A:h}"
+if [[ -f "$SCRIPT_DIR/claunch.sh" ]]; then
+  MODE=local
+else
+  MODE=remote
 fi
 
-# Add shell function to .zshrc if not already present
+# ── Dependencies ──────────────────────────────────────────────────────────────
+for _dep in jq fzf; do
+  if ! command -v "$_dep" &>/dev/null; then
+    echo "Installing $_dep..."
+    brew install "$_dep"
+  fi
+done
+
+mkdir -p "$CLAUDE_DIR" "$CONFIG_DIR"
+
+# ── Install claunch.sh ────────────────────────────────────────────────────────
+# Write to a temp file then atomically mv it into place, so a `ca` sourced in
+# the same instant never reads a half-written copy (which zsh reports as a
+# spurious "parse error near ')'").
+if [[ $MODE == local ]]; then
+  cp "$SCRIPT_DIR/claunch.sh" "$TARGET.tmp"
+else
+  curl -fsSL "$REPO_RAW/claunch.sh" -o "$TARGET.tmp"
+fi
+chmod +x "$TARGET.tmp"
+mv "$TARGET.tmp" "$TARGET"
+echo "Installed: $TARGET"
+
+# ── Seed models.json under ~/.config/claunch (never overwrite existing config)
+if [[ -f "$CONFIG_FILE" ]]; then
+  echo "Skipped:   $CONFIG_FILE already exists — not modified"
+elif [[ -f "$LEGACY_CFG" ]]; then
+  cp "$LEGACY_CFG" "$CONFIG_FILE"
+  echo "Migrated:  $LEGACY_CFG -> $CONFIG_FILE (legacy file kept)"
+else
+  if [[ $MODE == local ]]; then
+    cp "$SCRIPT_DIR/models.example.json" "$CONFIG_FILE"
+  else
+    curl -fsSL "$REPO_RAW/models.example.json" -o "$CONFIG_FILE"
+  fi
+  echo "Created:   $CONFIG_FILE (fill in your API keys)"
+fi
+
+# ── Wire up ca() in .zshrc ────────────────────────────────────────────────────
 if ! grep -q 'claunch.sh' "$ZSHRC" 2>/dev/null; then
   cat >> "$ZSHRC" <<'EOF'
 
@@ -28,11 +73,21 @@ if ! grep -q 'claunch.sh' "$ZSHRC" 2>/dev/null; then
 unalias ca 2>/dev/null
 function ca {
   source "$HOME/.claude/claunch.sh" "$@"
-  (( $+functions[p10k] )) && p10k reload 2>/dev/null
+  case "$1" in
+    --add|--remove|--current|--update|--help|--lang) ;;
+    *)
+      if (( $+functions[p10k] )); then
+        p10k reload 2>/dev/null
+      else
+        for _ca_f in "${precmd_functions[@]}"; do "$_ca_f" 2>/dev/null; done
+        unset _ca_f
+      fi
+      ;;
+  esac
 }
 EOF
   echo "Added ca() function to $ZSHRC"
-  echo "Run: source $ZSHRC"
+  echo "Run: source ~/.zshrc"
 else
   echo "ca() already configured in $ZSHRC — skipped"
 fi
